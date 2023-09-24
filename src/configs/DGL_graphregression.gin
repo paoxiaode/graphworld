@@ -1,0 +1,72 @@
+import graph_world.models.basic_gnn
+import graph_world.graphregression.generator_wrappers
+
+GeneratorBeamHandlerWrapper.handler = @GraphRegressionBeamHandler()
+
+GraphRegressionBeamHandler.tuning_metric = "mse_scaled"
+GraphRegressionBeamHandler.tuning_metric_is_loss = True
+GraphRegressionBeamHandler.batch_size = 32
+
+GraphRegressionBeamHandler.benchmarker_wrappers = [
+  @GCN_/NNGraphBenchmark,
+  @GraphSAGE_/NNGraphBenchmark,
+  @GAT_/NNGraphBenchmark,
+  @GATv2_/NNGraphBenchmark,
+  @ARMA_/NNGraphBenchmark,
+  @FiLM_/NNGraphBenchmark,
+  @GIN_/NNGraphBenchmark,
+  @LRGraphBenchmark,
+  @MLP_/NNGraphBenchmark,
+  @APPNP_/NNGraphBenchmark,
+  @SGC_/NNGraphBenchmark,
+  @SuperGAT_/NNGraphBenchmark,
+  @Transformer_/NNGraphBenchmark,
+]
+
+SubstructureSamplerSpec = [
+  @num_graphs/ParamSamplerSpec(),
+  @num_vertices/ParamSamplerSpec(),
+  @edge_prob/ParamSamplerSpec(),
+  @train_prob/ParamSamplerSpec(),
+  @tuning_prob/ParamSamplerSpec()
+]
+
+num_graphs/ParamSamplerSpec.name = "num_graphs"
+num_graphs/ParamSamplerSpec.min_val = 100
+num_graphs/ParamSamplerSpec.max_val = 500
+
+num_vertices/ParamSamplerSpec.name = "num_vertices"
+num_vertices/ParamSamplerSpec.min_val = 5
+num_vertices/ParamSamplerSpec.max_val = 30
+
+edge_prob/ParamSamplerSpec.name = "edge_prob"
+edge_prob/ParamSamplerSpec.min_val = 0.1
+edge_prob/ParamSamplerSpec.max_val = 0.75
+
+train_prob/ParamSamplerSpec.name = "train_prob"
+train_prob/ParamSamplerSpec.min_val = 0.2
+train_prob/ParamSamplerSpec.max_val = 0.7
+
+tuning_prob/ParamSamplerSpec.name = "tuning_prob"
+tuning_prob/ParamSamplerSpec.min_val = 0.2
+tuning_prob/ParamSamplerSpec.max_val = 0.2
+
+num_graphs/ParamSamplerSpec.default_val = 484
+edge_prob/ParamSamplerSpec.default_val = 0.7499999068906332
+train_prob/ParamSamplerSpec.default_val = 0.37991069053028037
+num_vertices/ParamSamplerSpec.default_val = 6
+
+GraphRegressionBeamHandler.generator_wrapper = @SubstructureGeneratorWrapper()
+
+
+
+# The assigned value below comes from ./default_param_ranges.gin.
+# If ./default_param_values.gin is also included, that file sets the default
+# value for each sampler spec, which is used to run "marginal" GraphWorld.
+SubstructureGeneratorWrapper.param_sampler_specs = %SubstructureSamplerSpec
+
+# Choice of substructure to count
+SubstructureGeneratorWrapper.substruct = %Substructure.TAILED_TRIANGLE_GRAPH
+
+# Whether to standard-normalize the regression values
+SubstructureGeneratorWrapper.normalize_target = True

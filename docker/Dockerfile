@@ -39,7 +39,10 @@ RUN /opt/conda/envs/gt/bin/pip install ogb \
         && /opt/conda/envs/gt/bin/pip install networkit \
         && /opt/conda/envs/gt/bin/pip install pandas \
         && /opt/conda/envs/gt/bin/pip install psutil \
-        && /opt/conda/envs/gt/bin/pip install seaborn 
+        && /opt/conda/envs/gt/bin/pip install seaborn \
+        && /opt/conda/envs/gt/bin/pip install apache-beam \
+        && /opt/conda/envs/gt/bin/pip install gin-config \
+        && /opt/conda/envs/gt/bin/pip install torch_geometric
 
 
 ENV DGL_HOME=/workspace2/dgl
@@ -48,3 +51,8 @@ ENV PYTHONPATH="/workspace2/dgl/python:$PYTHONPATH"
 
 RUN echo "cd /workspace2/cabam-graph-generation" >> ~/.bashrc
 RUN echo "pip install ." >> ~/.bashrc
+
+COPY --from=apache/beam_python3.8_sdk /opt/apache/beam /opt/apache/beam
+
+# Set the entrypoint to Apache Beam SDK worker launcher.
+ENTRYPOINT [ "/opt/apache/beam/boot" ]
