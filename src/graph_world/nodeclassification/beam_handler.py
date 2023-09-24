@@ -15,6 +15,8 @@ import json
 import logging
 import os, pdb
 
+import pickle, torch
+
 import apache_beam as beam
 import gin
 import numpy as np
@@ -56,54 +58,64 @@ class WriteNodeClassificationDatasetDoFn(beam.DoFn):
             f.close()
         # TODO how to store dgl graph
         # pdb.set_trace()
-        # edge_index = torch.tensor(data.graph.get_edges()).T
-        # node_feature =  torch.tensor(data.node_features)
-        # edge_feature = torch.tensor(data.edge_features)
-        graph_object_name = os.path.join(self._output_path, prefix + "_graph.gt")
-        with beam.io.filesystems.FileSystems.create(graph_object_name) as f:
-            data.graph.save(f)
-            f.close()
+        edge_index = torch.tensor(data.graph.get_edges()).T
+        num_vertex = data.graph.num_vertices()
+        node_feature = torch.tensor(data.node_features)
+        # edge_feature = torch.tensor(data.edge_features.items())
+        print("num_vertex", num_vertex)
+        print(edge_index.shape)
+        print(node_feature.shape)
+        # print(edge_feature.shape)
+        print(sample_id)
+        with open(os.path.join(self._output_path, f"{sample_id}.pkl"), "wb") as f:
+            pickle.dump([edge_index, node_feature], f)
+        pdb.set_trace()
 
-        graph_memberships_object_name = os.path.join(
-            self._output_path, prefix + "_graph_memberships.txt"
-        )
-        with beam.io.filesystems.FileSystems.create(
-            graph_memberships_object_name, text_mime
-        ) as f:
-            np.savetxt(f, data.graph_memberships)
-            f.close()
+        # graph_object_name = os.path.join(self._output_path, prefix + "_graph.gt")
+        # with beam.io.filesystems.FileSystems.create(graph_object_name) as f:
+        #     data.graph.save(f)
+        #     f.close()
 
-        node_features_object_name = os.path.join(
-            self._output_path, prefix + "_node_features.txt"
-        )
-        with beam.io.filesystems.FileSystems.create(
-            node_features_object_name, text_mime
-        ) as f:
-            np.savetxt(f, data.node_features)
-            f.close()
+        # graph_memberships_object_name = os.path.join(
+        #     self._output_path, prefix + "_graph_memberships.txt"
+        # )
+        # with beam.io.filesystems.FileSystems.create(
+        #     graph_memberships_object_name, text_mime
+        # ) as f:
+        #     np.savetxt(f, data.graph_memberships)
+        #     f.close()
 
-        feature_memberships_object_name = os.path.join(
-            self._output_path, prefix + "_feature_membership.txt"
-        )
-        with beam.io.filesystems.FileSystems.create(
-            feature_memberships_object_name, text_mime
-        ) as f:
-            np.savetxt(f, data.feature_memberships)
-            f.close()
+        # node_features_object_name = os.path.join(
+        #     self._output_path, prefix + "_node_features.txt"
+        # )
+        # with beam.io.filesystems.FileSystems.create(
+        #     node_features_object_name, text_mime
+        # ) as f:
+        #     np.savetxt(f, data.node_features)
+        #     f.close()
 
-        edge_features_object_name = os.path.join(
-            self._output_path, prefix + "_edge_features.txt"
-        )
-        with beam.io.filesystems.FileSystems.create(
-            edge_features_object_name, text_mime
-        ) as f:
-            for edge_tuple, features in data.edge_features.items():
-                buf = bytes(
-                    "{0},{1},{2}".format(edge_tuple[0], edge_tuple[1], features),
-                    "utf-8",
-                )
-                f.write(buf)
-            f.close()
+        # feature_memberships_object_name = os.path.join(
+        #     self._output_path, prefix + "_feature_membership.txt"
+        # )
+        # with beam.io.filesystems.FileSystems.create(
+        #     feature_memberships_object_name, text_mime
+        # ) as f:
+        #     np.savetxt(f, data.feature_memberships)
+        #     f.close()
+
+        # edge_features_object_name = os.path.join(
+        #     self._output_path, prefix + "_edge_features.txt"
+        # )
+        # with beam.io.filesystems.FileSystems.create(
+        #     edge_features_object_name, text_mime
+        # ) as f:
+        #     for edge_tuple, features in data.edge_features.items():
+        #         buf = bytes(
+        #             "{0},{1},{2}".format(edge_tuple[0], edge_tuple[1], features),
+        #             "utf-8",
+        #         )
+        #         f.write(buf)
+        #     f.close()
 
 
 class ComputeNodeClassificationMetrics(beam.DoFn):

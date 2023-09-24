@@ -91,14 +91,14 @@ def entry(argv=None):
                 gen_handler_wrapper.handler.GetWriteDoFn()
             )
 
-        pdb.set_trace()
-        torch_data = (
-            graph_samples
-            | "Compute graph metrics."
-            >> beam.ParDo(gen_handler_wrapper.handler.GetGraphMetricsParDo())
-            | "Convert to torchgeo data."
-            >> beam.ParDo(gen_handler_wrapper.handler.GetConvertParDo())
-        )
+        # pdb.set_trace()
+        # torch_data = (
+        #     graph_samples
+        #     | "Compute graph metrics."
+        #     >> beam.ParDo(gen_handler_wrapper.handler.GetGraphMetricsParDo())
+        #     | "Convert to torchgeo data."
+        #     >> beam.ParDo(gen_handler_wrapper.handler.GetConvertParDo())
+        # )
         # pdb.set_trace()
         # (torch_data | 'Filter skipped conversions' >> beam.Filter(
         #     lambda el: el['skipped'])

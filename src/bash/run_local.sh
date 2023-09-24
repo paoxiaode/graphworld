@@ -19,7 +19,7 @@
 #
 
 RUN_MODE2=false
-NUM_SAMPLES=2
+NUM_SAMPLES=5
 NUM_TUNING_ROUNDS=2
 # py boolean
 SAVE_TUNING_RESULTS=False
@@ -69,4 +69,4 @@ python3 /workspace2/graphworld/src/beam_benchmark_main.py \
   --runner DirectRunner \
   --gin_files configs/DGL_${TASK}.gin \
   --gin_params ${GIN_PARAMS} \
-  --output ${OUTPUT_PATH}
+  --output ${OUTPUT_PATH} --write_intermediat True
