@@ -56,8 +56,6 @@ class WriteNodeClassificationDatasetDoFn(beam.DoFn):
             buf = bytes(json.dumps(config), "utf-8")
             f.write(buf)
             f.close()
-        # TODO how to store dgl graph
-        # pdb.set_trace()
         edge_index = torch.tensor(data.graph.get_edges()).T
         num_vertex = data.graph.num_vertices()
         node_feature = torch.tensor(data.node_features)
@@ -67,10 +65,10 @@ class WriteNodeClassificationDatasetDoFn(beam.DoFn):
         print(node_feature.shape)
         # print(edge_feature.shape)
         print(sample_id)
-        with open(os.path.join(self._output_path, f"{sample_id}.pkl"), "wb") as f:
+        # # TODO skip edge features
+        with open(os.path.join(self._output_path, f"{sample_id}.pkl"), "ab") as f:
             pickle.dump([edge_index, node_feature], f)
-        pdb.set_trace()
-
+        # pdb.set_trace()
         # graph_object_name = os.path.join(self._output_path, prefix + "_graph.gt")
         # with beam.io.filesystems.FileSystems.create(graph_object_name) as f:
         #     data.graph.save(f)
@@ -144,88 +142,88 @@ class ComputeNodeClassificationMetrics(beam.DoFn):
         yield out
 
 
-class ConvertToTorchGeoDataParDo(beam.DoFn):
-    def __init__(self, output_path, num_train_per_class=5, num_val=5):
-        self._output_path = output_path
-        self._num_train_per_class = num_train_per_class
-        self._num_val = num_val
+# class ConvertToTorchGeoDataParDo(beam.DoFn):
+#     def __init__(self, output_path, num_train_per_class=5, num_val=5):
+#         self._output_path = output_path
+#         self._num_train_per_class = num_train_per_class
+#         self._num_val = num_val
 
-    def process(self, element):
-        sample_id = element["sample_id"]
-        nodeclassification_data = element["data"]
+#     def process(self, element):
+#         sample_id = element["sample_id"]
+#         nodeclassification_data = element["data"]
 
-        out = {
-            "sample_id": sample_id,
-            "metrics": element["metrics"],
-            "torch_data": None,
-            "masks": None,
-            "skipped": False,
-            "generator_config": element["generator_config"],
-            "marginal_param": element["marginal_param"],
-            "fixed_params": element["fixed_params"],
-        }
+#         out = {
+#             "sample_id": sample_id,
+#             "metrics": element["metrics"],
+#             "torch_data": None,
+#             "masks": None,
+#             "skipped": False,
+#             "generator_config": element["generator_config"],
+#             "marginal_param": element["marginal_param"],
+#             "fixed_params": element["fixed_params"],
+#         }
 
-        try:
-            torch_data = nodeclassification_data_to_torchgeo_data(
-                nodeclassification_data
-            )
-            out["torch_data"] = torch_data
-            out["gt_data"] = nodeclassification_data.graph
+#         try:
+#             torch_data = nodeclassification_data_to_torchgeo_data(
+#                 nodeclassification_data
+#             )
+#             out["torch_data"] = torch_data
+#             out["gt_data"] = nodeclassification_data.graph
 
-            torchgeo_stats = {
-                "nodes": torch_data.num_nodes,
-                "edges": torch_data.num_edges,
-                "average_node_degree": torch_data.num_edges / torch_data.num_nodes,
-                # 'contains_isolated_nodes': torchgeo_data.contains_isolated_nodes(),
-                # 'contains_self_loops': torchgeo_data.contains_self_loops(),
-                # 'undirected': bool(torchgeo_data.is_undirected())
-            }
-            stats_object_name = os.path.join(
-                self._output_path, "{0:05}_torch_stats.txt".format(sample_id)
-            )
-            with beam.io.filesystems.FileSystems.create(
-                stats_object_name, "text/plain"
-            ) as f:
-                buf = bytes(json.dumps(torchgeo_stats), "utf-8")
-                f.write(buf)
-                f.close()
-        except:
-            out["skipped"] = True
-            print(f"failed to convert {sample_id}")
-            logging.info(
-                (
-                    "Failed to convert nodeclassification_data to torchgeo"
-                    "for sample id %d"
-                ),
-                sample_id,
-            )
-            yield out
-            return
+#             torchgeo_stats = {
+#                 "nodes": torch_data.num_nodes,
+#                 "edges": torch_data.num_edges,
+#                 "average_node_degree": torch_data.num_edges / torch_data.num_nodes,
+#                 # 'contains_isolated_nodes': torchgeo_data.contains_isolated_nodes(),
+#                 # 'contains_self_loops': torchgeo_data.contains_self_loops(),
+#                 # 'undirected': bool(torchgeo_data.is_undirected())
+#             }
+#             stats_object_name = os.path.join(
+#                 self._output_path, "{0:05}_torch_stats.txt".format(sample_id)
+#             )
+#             with beam.io.filesystems.FileSystems.create(
+#                 stats_object_name, "text/plain"
+#             ) as f:
+#                 buf = bytes(json.dumps(torchgeo_stats), "utf-8")
+#                 f.write(buf)
+#                 f.close()
+#         except:
+#             out["skipped"] = True
+#             print(f"failed to convert {sample_id}")
+#             logging.info(
+#                 (
+#                     "Failed to convert nodeclassification_data to torchgeo"
+#                     "for sample id %d"
+#                 ),
+#                 sample_id,
+#             )
+#             yield out
+#             return
 
-        try:
-            out["masks"] = get_label_masks(
-                torch_data.y,
-                num_train_per_class=self._num_train_per_class,
-                num_val=self._num_val,
-            )
+#         try:
+#             out["masks"] = get_label_masks(
+#                 torch_data.y,
+#                 num_train_per_class=self._num_train_per_class,
+#                 num_val=self._num_val,
+#             )
 
-            masks_object_name = os.path.join(
-                self._output_path, "{0:05}_masks.txt".format(sample_id)
-            )
-            with beam.io.filesystems.FileSystems.create(
-                masks_object_name, "text/plain"
-            ) as f:
-                for mask in out["masks"]:
-                    np.savetxt(f, np.atleast_2d(mask.numpy()), fmt="%i", delimiter=" ")
-                f.close()
-        except:
-            out["skipped"] = True
-            print(f"failed masks {sample_id}")
-            logging.info(f"Failed to sample masks for sample id {sample_id}")
-            yield out
-            return
+#             masks_object_name = os.path.join(
+#                 self._output_path, "{0:05}_masks.txt".format(sample_id)
+#             )
+#             with beam.io.filesystems.FileSystems.create(
+#                 masks_object_name, "text/plain"
+#             ) as f:
+#                 for mask in out["masks"]:
+#                     np.savetxt(f, np.atleast_2d(mask.numpy()), fmt="%i", delimiter=" ")
+#                 f.close()
+#         except:
+#             out["skipped"] = True
+#             print(f"failed masks {sample_id}")
+#             logging.info(f"Failed to sample masks for sample id {sample_id}")
+#             yield out
+#             return
 
-        yield out
+#         yield out
 
 
 @gin.configurable
@@ -262,7 +260,7 @@ class NodeClassificationBeamHandler(GeneratorBeamHandler):
         return self._write_do_fn
 
     def GetConvertParDo(self):
-        return self._convert_par_do
+        return
 
     def GetBenchmarkParDo(self):
         return self._benchmark_par_do
@@ -273,7 +271,7 @@ class NodeClassificationBeamHandler(GeneratorBeamHandler):
     def SetOutputPath(self, output_path):
         self._output_path = output_path
         self._write_do_fn = WriteNodeClassificationDatasetDoFn(output_path)
-        self._convert_par_do = ConvertToTorchGeoDataParDo(
-            output_path, self._num_train_per_class, self._num_val
-        )
+        # self._convert_par_do = ConvertToTorchGeoDataParDo(
+        #     output_path, self._num_train_per_class, self._num_val
+        # )
         self._benchmark_par_do.SetOutputPath(output_path)

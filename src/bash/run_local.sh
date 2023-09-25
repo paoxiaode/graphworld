@@ -52,7 +52,7 @@ echo TASK $TASK
 echo GENERATOR $GENERATOR
 
 day=$(date +%m_%d)
-OUTPUT_PATH="log/day_${day}/${TASK}_${GENERATOR}"
+OUTPUT_PATH="/workspace2/dataset/graphworld/day_${day}/${TASK}_${GENERATOR}"
 rm -rf "${OUTPUT_PATH}"
 mkdir -p ${OUTPUT_PATH}
 
