@@ -49,24 +49,29 @@ class WriteNodeClassificationDatasetDoFn(beam.DoFn):
         config = element["generator_config"]
         data = element["data"]
 
-        text_mime = "text/plain"
-        prefix = "{0:05}".format(sample_id)
-        config_object_name = os.path.join(self._output_path, prefix + "_config.txt")
-        with beam.io.filesystems.FileSystems.create(config_object_name, text_mime) as f:
-            buf = bytes(json.dumps(config), "utf-8")
-            f.write(buf)
-            f.close()
+        # text_mime = "text/plain"
+        # prefix = "{0:05}".format(sample_id)
+        # config_object_name = os.path.join(self._output_path, prefix + "_config.txt")
+        # with beam.io.filesystems.FileSystems.create(config_object_name, text_mime) as f:
+        #     buf = bytes(json.dumps(config), "utf-8")
+        #     f.write(buf)
+        #     f.close()
+        
+        with open(os.path.join(self._output_path, f"{sample_id}_config.pkl"), "ab") as f:
+            pickle.dump(config, f)
         edge_index = torch.tensor(data.graph.get_edges()).T
         num_vertex = data.graph.num_vertices()
-        node_feature = torch.tensor(data.node_features)
+        node_feature = torch.tensor(data.node_features).float()
         # edge_feature = torch.tensor(data.edge_features.items())
+        
+        print("sample graph id", sample_id)
         print("num_vertex", num_vertex)
         print(edge_index.shape)
         print(node_feature.shape)
         # print(edge_feature.shape)
-        print(sample_id)
+        
         # # TODO skip edge features
-        with open(os.path.join(self._output_path, f"{sample_id}.pkl"), "ab") as f:
+        with open(os.path.join(self._output_path, f"{sample_id}.pkl"), "wb") as f:
             pickle.dump([num_vertex, edge_index, node_feature], f)
         # pdb.set_trace()
         # graph_object_name = os.path.join(self._output_path, prefix + "_graph.gt")

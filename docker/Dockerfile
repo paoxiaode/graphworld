@@ -51,7 +51,7 @@ ENV PYTHONPATH="/workspace2/dgl/python:$PYTHONPATH"
 
 RUN echo "cd /workspace2/cabam-graph-generation" >> ~/.bashrc
 RUN echo "pip install ." >> ~/.bashrc
-RUN echo "cp /usr/lib/x86_64-linux-gnu/libgomp.so.1 /opt/conda/envs/gt/lib/python3.8/site-packages/torch/lib/libgomp-a34b3233.so.1" >> ~/.bahrc
+RUN echo "cp /usr/lib/x86_64-linux-gnu/libgomp.so.1 /opt/conda/envs/gt/lib/python3.8/site-packages/torch/lib/libgomp-a34b3233.so.1" >> ~/.bashrc
 
 COPY --from=apache/beam_python3.8_sdk /opt/apache/beam /opt/apache/beam
 
