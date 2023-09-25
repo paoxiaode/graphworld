@@ -67,7 +67,7 @@ class WriteNodeClassificationDatasetDoFn(beam.DoFn):
         print(sample_id)
         # # TODO skip edge features
         with open(os.path.join(self._output_path, f"{sample_id}.pkl"), "ab") as f:
-            pickle.dump([edge_index, node_feature], f)
+            pickle.dump([num_vertex, edge_index, node_feature], f)
         # pdb.set_trace()
         # graph_object_name = os.path.join(self._output_path, prefix + "_graph.gt")
         # with beam.io.filesystems.FileSystems.create(graph_object_name) as f:
