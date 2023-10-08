@@ -57,20 +57,26 @@ class WriteNodeClassificationDatasetDoFn(beam.DoFn):
         #     f.write(buf)
         #     f.close()
         
-        with open(os.path.join(self._output_path, f"{sample_id}_config.pkl"), "ab") as f:
-            pickle.dump(config, f)
         edge_index = torch.tensor(data.graph.get_edges()).T
         num_vertex = data.graph.num_vertices()
+        num_edge = data.graph.num_edges()
         node_feature = torch.tensor(data.node_features).float()
+        _, count = torch.unique(edge_index[0], return_counts=True)
+        config["max_deg"] = max(count).item()
+        config["nedge"] = num_edge
         # edge_feature = torch.tensor(data.edge_features.items())
-        
-        print("sample graph id", sample_id)
+        print("-----------------sample graph id", sample_id)
+        print("config", config)
         print("num_vertex", num_vertex)
-        print(edge_index.shape)
-        print(node_feature.shape)
+        print("node_feature.shape", node_feature.shape)
+        
+        print("num_edge", num_edge)
+        print("edge_index.shape", edge_index.shape)
         # print(edge_feature.shape)
         
         # # TODO skip edge features
+        with open(os.path.join(self._output_path, f"{sample_id}_config.pkl"), "ab") as f:
+            pickle.dump(config, f)
         with open(os.path.join(self._output_path, f"{sample_id}.pkl"), "wb") as f:
             pickle.dump([num_vertex, edge_index, node_feature], f)
         # pdb.set_trace()
