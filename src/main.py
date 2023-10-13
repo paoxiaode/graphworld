@@ -1,27 +1,28 @@
 import logging
 import os
 import sys
+from collections import Counter
+
+import matplotlib.pyplot as plt
+
+import networkx as nx
 
 import pandas as pd
 
-import networkx as nx
-import matplotlib.pyplot as plt
+import seaborn as sns
 
 # Generator imports
 from graph_world.generators.cabam_simulator import GenerateCABAMGraphWithFeatures
+from graph_world.generators.lfr_simulator import GenerateLFRGraphWithFeatures
 from graph_world.generators.sbm_simulator import (
     GenerateStochasticBlockModelWithFeatures,
-    MatchType,
-    MakePi,
     MakeDegrees,
+    MakePi,
     MakePropMat,
+    MatchType,
 )
-from graph_world.generators.lfr_simulator import GenerateLFRGraphWithFeatures
-
-import seaborn as sns
-from collections import Counter
-from matplotlib import pyplot as plot
 from graph_world.metrics.graph_metrics import graph_metrics
+from matplotlib import pyplot as plot
 
 
 def gt_to_nx(gt_graph, labels):
@@ -64,19 +65,19 @@ def plot_dataset(dataset):
         node_size=40,
     )
 
+
 def plot_power_law(dataset):
     metrics = graph_metrics(dataset.graph)
-    print("power law estimate it %0.4f" % metrics['power_law_estimate'])
+    print("power law estimate it %0.4f" % metrics["power_law_estimate"])
     dist = dataset.graph.get_out_degrees(list(dataset.graph.vertices()))
     ctr = Counter([int(i) for i in dist])
     degs = sorted(ctr.items())
-    plt.loglog([deg for (deg, ct) in degs], 
-               [ct for (deg, ct) in degs])
-    plt.xlabel('Degree', fontsize=16)
-    plt.ylabel('Count', fontsize=16)
+    plt.loglog([deg for (deg, ct) in degs], [ct for (deg, ct) in degs])
+    plt.xlabel("Degree", fontsize=16)
+    plt.ylabel("Count", fontsize=16)
     plt.legend()
     plt.show()
-    
+
     sns.displot(dist)
     plt.show()
 

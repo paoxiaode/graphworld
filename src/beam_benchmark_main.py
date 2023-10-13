@@ -17,8 +17,10 @@
 
 import graph_world.beam.pipeline
 
-def main(argv=None):
-  graph_world.beam.pipeline.entry(argv)
 
-if __name__ == '__main__':
-  main(None)
+def main(argv=None):
+    graph_world.beam.pipeline.entry(argv)
+
+
+if __name__ == "__main__":
+    main(None)

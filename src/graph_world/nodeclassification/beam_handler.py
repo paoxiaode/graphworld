@@ -18,10 +18,11 @@ import os, pdb
 import pickle, torch
 
 import apache_beam as beam
+import dgl
 import gin
 import numpy as np
-import dgl
 from tqdm import tqdm
+
 from ..beam.benchmarker import BenchmarkGNNParDo
 from ..beam.generator_beam_handler import GeneratorBeamHandler
 from ..metrics.graph_metrics import graph_metrics
@@ -56,11 +57,11 @@ class WriteNodeClassificationDatasetDoFn(beam.DoFn):
             num_vertex = data.graph.num_vertices()
             # num_edge = data.graph.num_edges()
             node_feature = torch.tensor(data.node_features).float()
-            
+
             g = dgl.graph((edge_index[0], edge_index[1]), num_nodes=num_vertex)
             g.ndata["feat"] = node_feature.to(torch.float)
             graphs.append(g)
-            
+
             # print("num_vertex", num_vertex)
             # print("node_feature.shape", node_feature.shape)
             # print("num_edge", num_edge)
@@ -69,21 +70,21 @@ class WriteNodeClassificationDatasetDoFn(beam.DoFn):
         bg_nodes = batch_graph.num_nodes()
         bg_edges = batch_graph.num_edges()
         max_degree = max(batch_graph.in_degrees()).item()
-        
+
         print("num_vertex", bg_nodes)
         print("node_feature.shape", g.ndata["feat"].shape)
-        print("num_edge",  bg_edges)
+        print("num_edge", bg_edges)
         print("max degree", max_degree)
-        
-        
+
         config["max_deg"] = max_degree
         config["nvertex"] = bg_nodes
-        
-        
+
         print("config", config)
         with open(os.path.join(self._output_path, f"{sample_id}.pkl"), "wb") as file:
             pickle.dump(batch_graph, file)
-        with open(os.path.join(self._output_path, f"{sample_id}_config.pkl"), "ab") as f:
+        with open(
+            os.path.join(self._output_path, f"{sample_id}_config.pkl"), "ab"
+        ) as f:
             pickle.dump(config, f)
         # # TODO skip edge features
         # with open(os.path.join(self._output_path, f"{sample_id}_config.pkl"), "ab") as f:

@@ -13,27 +13,34 @@
 # limitations under the License.
 
 import collections
+
+import dataclasses
 import enum
 import math
 import random
-from typing import Dict, Sequence, List, Tuple
-from sklearn.preprocessing import normalize
+from typing import Dict, List, Sequence, Tuple
 
-import dataclasses
 import graph_tool
-import numpy as np
 import networkx as nx
-from tqdm.notebook import tqdm
+import numpy as np
 from cabam import CABAM as CABAM_git
+from sklearn.preprocessing import normalize
+from tqdm.notebook import tqdm
 
 from graph_tool.all import *
-from graph_world.generators.sbm_simulator import SimulateFeatures, MatchType, SimulateEdgeFeatures
+from graph_world.generators.sbm_simulator import (
+    MatchType,
+    SimulateEdgeFeatures,
+    SimulateFeatures,
+)
+
 
 @dataclasses.dataclass
 class CABAM:
     """
     Stores data for Class Assortative and Attributed graphs via the Barabasi Albert Model. Identical to SBM dataclass.
     """
+
     graph: graph_tool.Graph = Ellipsis
     graph_memberships: np.ndarray = Ellipsis
     node_features: np.ndarray = Ellipsis
@@ -42,33 +49,35 @@ class CABAM:
 
 
 def NetworkxToGraphWorldData(G, node_labels, cabam_data):
-  """
-  Converts NetworkX graph data to GraphWorld CABAM dataclass.
-  Args:
-    G: NetworkX Graph 
-    node_labels: list of integer node labels
-    cabam_data: CABAM dataclass instance to store graph data
-  Returns:
-    cabam_data: CABAM dataclass instance to store graph data
-  """
-  cabam_data.graph_memberships = list(node_labels) # Memberships is integer node class list
+    """
+    Converts NetworkX graph data to GraphWorld CABAM dataclass.
+    Args:
+      G: NetworkX Graph
+      node_labels: list of integer node labels
+      cabam_data: CABAM dataclass instance to store graph data
+    Returns:
+      cabam_data: CABAM dataclass instance to store graph data
+    """
+    cabam_data.graph_memberships = list(
+        node_labels
+    )  # Memberships is integer node class list
 
-  # Manipulate G into cabam_data.graph Graph Tool object
-  nx_edges = list(G.edges())
-  nx_nodes = list(G.nodes())
-  cabam_data.graph = graph_tool.Graph(directed=False)
+    # Manipulate G into cabam_data.graph Graph Tool object
+    nx_edges = list(G.edges())
+    nx_nodes = list(G.nodes())
+    cabam_data.graph = graph_tool.Graph(directed=False)
 
-  # Add the nodes
-  vertices = {} # vertex mapping for tracking edges later
-  for node in nx_nodes:
-      # Create the vertex and annotate for our edges later
-      v = cabam_data.graph.add_vertex()
-      vertices[node] = v
-  # Add the edges
-  for src, dst in nx_edges:
-      # Look up the vertex structs from our vertices mapping and add edge.
-      e = cabam_data.graph.add_edge(vertices[src], vertices[dst])
-  return cabam_data
+    # Add the nodes
+    vertices = {}  # vertex mapping for tracking edges later
+    for node in nx_nodes:
+        # Create the vertex and annotate for our edges later
+        v = cabam_data.graph.add_vertex()
+        vertices[node] = v
+    # Add the edges
+    for src, dst in nx_edges:
+        # Look up the vertex structs from our vertices mapping and add edge.
+        e = cabam_data.graph.add_edge(vertices[src], vertices[dst])
+    return cabam_data
 
 
 def GenerateAssortativityDict(p_in, assortativity_type, temperature):
@@ -77,12 +86,12 @@ def GenerateAssortativityDict(p_in, assortativity_type, temperature):
     Args:
         p_in: float representing probability of intra-class assignment in CABAM generation with FIXED assortativity
         assortativity_type: integer representing assortativity type chosen
-        temperature: integer representing temperature of tanh function in CABAM generation with DEGREE DEPENDENT assortativity        
+        temperature: integer representing temperature of tanh function in CABAM generation with DEGREE DEPENDENT assortativity
     """
-    if assortativity_type==1: # Fixed assortativity 
-      return {1: p_in, 0: 1-p_in }
-    if assortativity_type==2: # Degree dependent assortativity
-      return lambda k: {1: np.tanh(k/temperature), 0: 1 - np.tanh(k/temperature)}
+    if assortativity_type == 1:  # Fixed assortativity
+        return {1: p_in, 0: 1 - p_in}
+    if assortativity_type == 2:  # Degree dependent assortativity
+        return lambda k: {1: np.tanh(k / temperature), 0: 1 - np.tanh(k / temperature)}
 
 
 def GenerateCABAMGraphWithFeatures(
@@ -100,7 +109,8 @@ def GenerateCABAMGraphWithFeatures(
     edge_feature_dim=0,
     edge_center_distance=0.0,
     edge_cluster_variance=1.0,
-    normalize_features=True):
+    normalize_features=True,
+):
     """
     Generates Class Assortative Graphs via the Barabasi Albert Model (CABAM) with node features.
     Args:
@@ -123,18 +133,29 @@ def GenerateCABAMGraphWithFeatures(
     """
     result = CABAM()
     CABAM_model = CABAM_git()
-    G, _, node_labels, _, _ = CABAM_model.generate_graph(n=n, m=min_deg, num_classes=num_feature_groups, native_class_probs=pi.tolist(), inter_intra_link_probs=GenerateAssortativityDict(inter_link_strength, assortativity_type, temperature) )
+    G, _, node_labels, _, _ = CABAM_model.generate_graph(
+        n=n,
+        m=min_deg,
+        num_classes=num_feature_groups,
+        native_class_probs=pi.tolist(),
+        inter_intra_link_probs=GenerateAssortativityDict(
+            inter_link_strength, assortativity_type, temperature
+        ),
+    )
     NetworkxToGraphWorldData(G, node_labels, result)
 
     # Borrowing node and edge feature generation from SBM
-    SimulateFeatures(result, feature_center_distance,
-                    feature_dim,
-                    num_feature_groups,
-                    feature_group_match_type,
-                    feature_cluster_variance,
-                    normalize_features)
-    SimulateEdgeFeatures(result, edge_feature_dim,
-                       edge_center_distance,
-                       edge_cluster_variance)
+    SimulateFeatures(
+        result,
+        feature_center_distance,
+        feature_dim,
+        num_feature_groups,
+        feature_group_match_type,
+        feature_cluster_variance,
+        normalize_features,
+    )
+    SimulateEdgeFeatures(
+        result, edge_feature_dim, edge_center_distance, edge_cluster_variance
+    )
 
     return result

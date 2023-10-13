@@ -14,11 +14,11 @@
 import json
 import logging
 import os
+import random
 
 import apache_beam as beam
 import gin
 import numpy as np
-import random
 
 from ..beam.benchmarker import Benchmarker, BenchmarkGNNParDo
 from ..beam.generator_beam_handler import GeneratorBeamHandler
@@ -28,154 +28,181 @@ from ..noderegression.utils import noderegression_data_to_torchgeo_data, sample_
 
 
 class SampleNodeRegressionDatasetDoFn(beam.DoFn):
+    def __init__(self, generator_wrapper):
+        self._generator_wrapper = generator_wrapper
 
-  def __init__(self, generator_wrapper):
-    self._generator_wrapper = generator_wrapper
-
-  def process(self, sample_id):
-    """Sample generator outputs."""
-    yield self._generator_wrapper.Generate(sample_id)
+    def process(self, sample_id):
+        """Sample generator outputs."""
+        yield self._generator_wrapper.Generate(sample_id)
 
 
 class WriteNodeRegressionDatasetDoFn(beam.DoFn):
+    def __init__(self, output_path):
+        self._output_path = output_path
 
-  def __init__(self, output_path):
-    self._output_path = output_path
+    def process(self, element):
+        sample_id = element["sample_id"]
+        config = element["generator_config"]
+        data = element["data"]
 
-  def process(self, element):
-    sample_id = element['sample_id']
-    config = element['generator_config']
-    data = element['data']
+        text_mime = "text/plain"
+        prefix = "{0:05}".format(sample_id)
+        config_object_name = os.path.join(self._output_path, prefix + "_config.txt")
+        with beam.io.filesystems.FileSystems.create(config_object_name, text_mime) as f:
+            buf = bytes(json.dumps(config), "utf-8")
+            f.write(buf)
+            f.close()
 
-    text_mime = 'text/plain'
-    prefix = '{0:05}'.format(sample_id)
-    config_object_name = os.path.join(self._output_path, prefix + '_config.txt')
-    with beam.io.filesystems.FileSystems.create(
-        config_object_name, text_mime) as f:
-      buf = bytes(json.dumps(config), 'utf-8')
-      f.write(buf)
-      f.close()
+        graph_object_name = os.path.join(self._output_path, prefix + "_graph.gt")
+        with beam.io.filesystems.FileSystems.create(graph_object_name) as f:
+            data.graph.save(f)
+            f.close()
 
-    graph_object_name = os.path.join(self._output_path, prefix + '_graph.gt')
-    with beam.io.filesystems.FileSystems.create(graph_object_name) as f:
-      data.graph.save(f)
-      f.close()
+        graph_memberships_object_name = os.path.join(
+            self._output_path, prefix + "_graph_memberships.txt"
+        )
+        with beam.io.filesystems.FileSystems.create(
+            graph_memberships_object_name, text_mime
+        ) as f:
+            np.savetxt(f, data.graph_memberships)
+            f.close()
 
-    graph_memberships_object_name = os.path.join(
-      self._output_path, prefix + '_graph_memberships.txt')
-    with beam.io.filesystems.FileSystems.create(
-        graph_memberships_object_name, text_mime) as f:
-      np.savetxt(f, data.graph_memberships)
-      f.close()
+        node_features_object_name = os.path.join(
+            self._output_path, prefix + "_node_features.txt"
+        )
+        with beam.io.filesystems.FileSystems.create(
+            node_features_object_name, text_mime
+        ) as f:
+            np.savetxt(f, data.node_features)
+            f.close()
 
-    node_features_object_name = os.path.join(
-      self._output_path, prefix + '_node_features.txt')
-    with beam.io.filesystems.FileSystems.create(
-        node_features_object_name, text_mime) as f:
-      np.savetxt(f, data.node_features)
-      f.close()
+        feature_memberships_object_name = os.path.join(
+            self._output_path, prefix + "_feature_membership.txt"
+        )
+        with beam.io.filesystems.FileSystems.create(
+            feature_memberships_object_name, text_mime
+        ) as f:
+            np.savetxt(f, data.feature_memberships)
+            f.close()
 
-    feature_memberships_object_name = os.path.join(
-      self._output_path, prefix + '_feature_membership.txt')
-    with beam.io.filesystems.FileSystems.create(
-        feature_memberships_object_name, text_mime) as f:
-      np.savetxt(f, data.feature_memberships)
-      f.close()
-
-    edge_features_object_name = os.path.join(
-      self._output_path, prefix + '_edge_features.txt')
-    with beam.io.filesystems.FileSystems.create(
-        edge_features_object_name, text_mime) as f:
-      for edge_tuple, features in data.edge_features.items():
-        buf = bytes('{0},{1},{2}'.format(
-            edge_tuple[0], edge_tuple[1], features), 'utf-8')
-        f.write(buf)
-      f.close()
+        edge_features_object_name = os.path.join(
+            self._output_path, prefix + "_edge_features.txt"
+        )
+        with beam.io.filesystems.FileSystems.create(
+            edge_features_object_name, text_mime
+        ) as f:
+            for edge_tuple, features in data.edge_features.items():
+                buf = bytes(
+                    "{0},{1},{2}".format(edge_tuple[0], edge_tuple[1], features),
+                    "utf-8",
+                )
+                f.write(buf)
+            f.close()
 
 
 class ComputeNodeRegressionGraphMetrics(beam.DoFn):
-
-  def process(self, element):
-    out = element
-    out['metrics'] = graph_metrics(element['data'].graph)
-    out['metrics'].update(NodeLabelMetrics(element['data'].graph,
-                                           element['data'].graph_memberships,
-                                           element['data'].node_features))
-    yield out
+    def process(self, element):
+        out = element
+        out["metrics"] = graph_metrics(element["data"].graph)
+        out["metrics"].update(
+            NodeLabelMetrics(
+                element["data"].graph,
+                element["data"].graph_memberships,
+                element["data"].node_features,
+            )
+        )
+        yield out
 
 
 class ConvertToTorchGeoDataParDo(beam.DoFn):
-  def __init__(self, training_ratio, tuning_ratio):
-    self._training_ratio = training_ratio
-    self._tuning_ratio = tuning_ratio
+    def __init__(self, training_ratio, tuning_ratio):
+        self._training_ratio = training_ratio
+        self._tuning_ratio = tuning_ratio
 
-  def process(self, element):
-    sample_id = element['sample_id']
-    noderegression_data = element['data']
-    out = {
-        'sample_id': sample_id,
-        'metrics': element['metrics'],
-        'torch_data': None,
-        'masks': None,
-        'skipped': False,
-        'generator_config': element['generator_config'],
-        'marginal_param': element['marginal_param'],
-        'fixed_params': element['fixed_params']
-    }
+    def process(self, element):
+        sample_id = element["sample_id"]
+        noderegression_data = element["data"]
+        out = {
+            "sample_id": sample_id,
+            "metrics": element["metrics"],
+            "torch_data": None,
+            "masks": None,
+            "skipped": False,
+            "generator_config": element["generator_config"],
+            "marginal_param": element["marginal_param"],
+            "fixed_params": element["fixed_params"],
+        }
 
-    try:
-      torch_data = noderegression_data_to_torchgeo_data(noderegression_data)
-      out['torch_data'] = torch_data
-      out['masks'] = sample_masks(
-          noderegression_data.node_regression_target.shape[0],
-          self._training_ratio, self._tuning_ratio)
-    except Exception as e:
-      out['skipped'] = True
-      print(f'failed to convert {sample_id}')
-      logging.info(
-          ('Failed to convert linkprediction_data to torchgeo'
-           'for sample id %d'), sample_id)
-      raise e
+        try:
+            torch_data = noderegression_data_to_torchgeo_data(noderegression_data)
+            out["torch_data"] = torch_data
+            out["masks"] = sample_masks(
+                noderegression_data.node_regression_target.shape[0],
+                self._training_ratio,
+                self._tuning_ratio,
+            )
+        except Exception as e:
+            out["skipped"] = True
+            print(f"failed to convert {sample_id}")
+            logging.info(
+                (
+                    "Failed to convert linkprediction_data to torchgeo"
+                    "for sample id %d"
+                ),
+                sample_id,
+            )
+            raise e
 
-    yield out
+        yield out
 
 
 @gin.configurable
 class NodeRegressionBeamHandler(GeneratorBeamHandler):
+    @gin.configurable
+    def __init__(
+        self,
+        benchmarker_wrappers,
+        generator_wrapper,
+        training_ratio,
+        tuning_ratio,
+        marginal=False,
+        num_tuning_rounds=1,
+        tuning_metric="",
+        tuning_metric_is_loss=False,
+        save_tuning_results=False,
+    ):
+        self._sample_do_fn = SampleNodeRegressionDatasetDoFn(generator_wrapper)
+        self._benchmark_par_do = BenchmarkGNNParDo(
+            benchmarker_wrappers,
+            num_tuning_rounds,
+            tuning_metric,
+            tuning_metric_is_loss,
+            save_tuning_results,
+        )
+        self._metrics_par_do = ComputeNodeRegressionGraphMetrics()
+        self._training_ratio = training_ratio
+        self._tuning_ratio = tuning_ratio
+        self._save_tuning_results = save_tuning_results
 
-  @gin.configurable
-  def __init__(self, benchmarker_wrappers, generator_wrapper,
-               training_ratio, tuning_ratio, marginal=False,
-               num_tuning_rounds=1, tuning_metric='',
-               tuning_metric_is_loss=False, save_tuning_results=False):
-    self._sample_do_fn = SampleNodeRegressionDatasetDoFn(generator_wrapper)
-    self._benchmark_par_do = BenchmarkGNNParDo(benchmarker_wrappers,
-                                               num_tuning_rounds, tuning_metric,
-                                               tuning_metric_is_loss,
-                                               save_tuning_results)
-    self._metrics_par_do = ComputeNodeRegressionGraphMetrics()
-    self._training_ratio = training_ratio
-    self._tuning_ratio = tuning_ratio
-    self._save_tuning_results = save_tuning_results
+    def GetSampleDoFn(self):
+        return self._sample_do_fn
 
-  def GetSampleDoFn(self):
-    return self._sample_do_fn
+    def GetWriteDoFn(self):
+        return self._write_do_fn
 
-  def GetWriteDoFn(self):
-    return self._write_do_fn
+    def GetConvertParDo(self):
+        return self._convert_par_do
 
-  def GetConvertParDo(self):
-    return self._convert_par_do
+    def GetBenchmarkParDo(self):
+        return self._benchmark_par_do
 
-  def GetBenchmarkParDo(self):
-    return self._benchmark_par_do
+    def GetGraphMetricsParDo(self):
+        return self._metrics_par_do
 
-  def GetGraphMetricsParDo(self):
-    return self._metrics_par_do
-
-  def SetOutputPath(self, output_path):
-    self._output_path = output_path
-    self._write_do_fn = WriteNodeRegressionDatasetDoFn(output_path)
-    self._convert_par_do = ConvertToTorchGeoDataParDo(self._training_ratio,
-                                                      self._tuning_ratio)
-    self._benchmark_par_do.SetOutputPath(output_path)
+    def SetOutputPath(self, output_path):
+        self._output_path = output_path
+        self._write_do_fn = WriteNodeRegressionDatasetDoFn(output_path)
+        self._convert_par_do = ConvertToTorchGeoDataParDo(
+            self._training_ratio, self._tuning_ratio
+        )
+        self._benchmark_par_do.SetOutputPath(output_path)

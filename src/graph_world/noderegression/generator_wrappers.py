@@ -16,74 +16,89 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 
 from ..beam.generator_config_sampler import GeneratorConfigSampler
-from ..generators.sbm_simulator import GenerateStochasticBlockModelWithFeatures, MatchType, MakePi, MakePropMat
-from ..noderegression.utils import NodeRegressionDataset, calculate_target
+from ..generators.sbm_simulator import (
+    GenerateStochasticBlockModelWithFeatures,
+    MakePi,
+    MakePropMat,
+    MatchType,
+)
+from ..noderegression.utils import calculate_target, NodeRegressionDataset
 
 
 @gin.configurable
 class SbmGeneratorWrapper(GeneratorConfigSampler):
+    def __init__(
+        self,
+        target,
+        param_sampler_specs,
+        marginal=False,
+        normalize_features=True,
+        normalize_target=True,
+    ):
+        super(SbmGeneratorWrapper, self).__init__(param_sampler_specs)
+        self._marginal = marginal
+        self._normalize_features = normalize_features
+        self._normalize_target = normalize_target
+        self._target = target
+        self._AddSamplerFn("nvertex", self._SampleUniformInteger)
+        self._AddSamplerFn("avg_degree", self._SampleUniformFloat)
+        self._AddSamplerFn("feature_center_distance", self._SampleUniformFloat)
+        self._AddSamplerFn("feature_dim", self._SampleUniformInteger)
+        self._AddSamplerFn("edge_feature_dim", self._SampleUniformInteger)
+        self._AddSamplerFn("edge_center_distance", self._SampleUniformFloat)
+        self._AddSamplerFn("p_to_q_ratio", self._SampleUniformFloat)
+        self._AddSamplerFn("num_clusters", self._SampleUniformInteger)
+        self._AddSamplerFn("cluster_size_slope", self._SampleUniformFloat)
+        self._AddSamplerFn("power_exponent", self._SampleUniformFloat)
 
-  def __init__(self, target, param_sampler_specs, marginal=False,
-               normalize_features=True, normalize_target=True):
-    super(SbmGeneratorWrapper, self).__init__(param_sampler_specs)
-    self._marginal = marginal
-    self._normalize_features = normalize_features
-    self._normalize_target = normalize_target
-    self._target = target
-    self._AddSamplerFn('nvertex', self._SampleUniformInteger)
-    self._AddSamplerFn('avg_degree', self._SampleUniformFloat)
-    self._AddSamplerFn('feature_center_distance', self._SampleUniformFloat)
-    self._AddSamplerFn('feature_dim', self._SampleUniformInteger)
-    self._AddSamplerFn('edge_feature_dim', self._SampleUniformInteger)
-    self._AddSamplerFn('edge_center_distance', self._SampleUniformFloat)
-    self._AddSamplerFn('p_to_q_ratio', self._SampleUniformFloat)
-    self._AddSamplerFn('num_clusters', self._SampleUniformInteger)
-    self._AddSamplerFn('cluster_size_slope', self._SampleUniformFloat)
-    self._AddSamplerFn('power_exponent', self._SampleUniformFloat)
+    def Generate(self, sample_id):
+        """Sample and save SMB outputs given a configuration filepath."""
+        # Avoid save_main_session in Pipeline args so the controller doesn't
+        # have to import the same libraries as the workers which may be using
+        # a custom container. The import will execute once then the sys.modeules
+        # will be referenced to further calls.
 
-  def Generate(self, sample_id):
-    """Sample and save SMB outputs given a configuration filepath.
-    """
-    # Avoid save_main_session in Pipeline args so the controller doesn't
-    # have to import the same libraries as the workers which may be using
-    # a custom container. The import will execute once then the sys.modeules
-    # will be referenced to further calls.
+        generator_config, marginal_param, fixed_params = self.SampleConfig(
+            self._marginal
+        )
+        generator_config["generator_name"] = "StochasticBlockModel"
 
-    generator_config, marginal_param, fixed_params = self.SampleConfig(
-        self._marginal)
-    generator_config['generator_name'] = 'StochasticBlockModel'
+        sbm_data = GenerateStochasticBlockModelWithFeatures(
+            num_vertices=generator_config["nvertex"],
+            num_edges=generator_config["nvertex"] * generator_config["avg_degree"],
+            pi=MakePi(
+                generator_config["num_clusters"], generator_config["cluster_size_slope"]
+            ),
+            prop_mat=MakePropMat(
+                generator_config["num_clusters"], generator_config["p_to_q_ratio"]
+            ),
+            num_feature_groups=generator_config["num_clusters"],
+            feature_group_match_type=MatchType.GROUPED,
+            feature_center_distance=generator_config["feature_center_distance"],
+            feature_dim=generator_config["feature_dim"],
+            edge_center_distance=generator_config["edge_center_distance"],
+            edge_feature_dim=generator_config["edge_feature_dim"],
+            out_degs=np.random.power(
+                generator_config["power_exponent"], generator_config["nvertex"]
+            ),
+            normalize_features=self._normalize_features,
+        )
 
-    sbm_data = GenerateStochasticBlockModelWithFeatures(
-      num_vertices=generator_config['nvertex'],
-      num_edges=generator_config['nvertex'] * generator_config['avg_degree'],
-      pi=MakePi(generator_config['num_clusters'],
-                generator_config['cluster_size_slope']),
-      prop_mat=MakePropMat(generator_config['num_clusters'],
-                           generator_config['p_to_q_ratio']),
-                           
-      num_feature_groups=generator_config['num_clusters'],
-      feature_group_match_type=MatchType.GROUPED,
-      feature_center_distance=generator_config['feature_center_distance'],
-      feature_dim=generator_config['feature_dim'],
-      edge_center_distance=generator_config['edge_center_distance'],
-      edge_feature_dim=generator_config['edge_feature_dim'],
-      out_degs=np.random.power(generator_config['power_exponent'],
-                               generator_config['nvertex']),
-      normalize_features=self._normalize_features
-    )
+        y = calculate_target(sbm_data.graph, self._target)
+        if self._normalize_target:
+            y = StandardScaler().fit_transform(y.reshape(-1, 1)).ravel()
 
-    y = calculate_target(sbm_data.graph, self._target)
-    if self._normalize_target:
-      y = StandardScaler().fit_transform(y.reshape(-1, 1)).ravel()
-
-    return {'sample_id': sample_id,
-            'marginal_param': marginal_param,
-            'fixed_params': fixed_params,
-            'generator_config': generator_config,
-            'target': self._target,
-            'data': NodeRegressionDataset(
+        return {
+            "sample_id": sample_id,
+            "marginal_param": marginal_param,
+            "fixed_params": fixed_params,
+            "generator_config": generator_config,
+            "target": self._target,
+            "data": NodeRegressionDataset(
                 graph=sbm_data.graph,
                 node_regression_target=y,
                 node_features=sbm_data.node_features,
                 edge_features=sbm_data.edge_features,
-                graph_memberships=sbm_data.graph_memberships)}
+                graph_memberships=sbm_data.graph_memberships,
+            ),
+        }

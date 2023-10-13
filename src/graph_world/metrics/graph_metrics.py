@@ -14,19 +14,20 @@
 from typing import Dict
 
 import graph_tool
-from .graph_metrics_nx import graph_metrics_nx
 import networkx as nx
+
+from .graph_metrics_nx import graph_metrics_nx
 
 
 def graph_metrics(graph: graph_tool.Graph) -> Dict[str, float]:
-  """Computes graph metrics on a graph_tool graph object.
+    """Computes graph metrics on a graph_tool graph object.
 
-  Arguments:
-    graph: graph_tool graph.
-  Returns:
-    dict from metric names to metric values.
-  """
-  nx_graph = nx.Graph()
-  edge_list = [(int(e.source()), int(e.target())) for e in graph.edges()]
-  nx_graph.add_edges_from(edge_list)
-  return graph_metrics_nx(nx_graph)
+    Arguments:
+      graph: graph_tool graph.
+    Returns:
+      dict from metric names to metric values.
+    """
+    nx_graph = nx.Graph()
+    edge_list = [(int(e.source()), int(e.target())) for e in graph.edges()]
+    nx_graph.add_edges_from(edge_list)
+    return graph_metrics_nx(nx_graph)

@@ -17,8 +17,10 @@
 
 import hparam_analysis.beam.pipeline
 
-def main(argv=None):
-  hparam_analysis.beam.pipeline.entry(argv)
 
-if __name__ == '__main__':
-  main(None)
+def main(argv=None):
+    hparam_analysis.beam.pipeline.entry(argv)
+
+
+if __name__ == "__main__":
+    main(None)

@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from itertools import product
-from typing import Optional, List
+from typing import List, Optional
 
 import gin
 
@@ -24,27 +24,31 @@ def enumerate_configs(
     weight_decay_values: List[float] = [5e-5],
     dropout_values: List[float] = [0.5],
     lr_values: List[float] = [1e-2],
-    num_layers_values: List[float] = [3.0]
-  ):
+    num_layers_values: List[float] = [3.0],
+):
 
-  configs = list(product(*[
-    hidden_channel_values,
-    weight_decay_values,
-    dropout_values,
-    lr_values,
-    num_layers_values
-  ]))
+    configs = list(
+        product(
+            *[
+                hidden_channel_values,
+                weight_decay_values,
+                dropout_values,
+                lr_values,
+                num_layers_values,
+            ]
+        )
+    )
 
-  configs = [
-    {'index': i,
-     'hidden_channels': a,
-     'weight_decay': b,
-     'dropout': c,
-     'lr': d,
-     'num_layers': g} for
-    i, (a, b, c, d, g) in enumerate(configs)
-  ]
+    configs = [
+        {
+            "index": i,
+            "hidden_channels": a,
+            "weight_decay": b,
+            "dropout": c,
+            "lr": d,
+            "num_layers": g,
+        }
+        for i, (a, b, c, d, g) in enumerate(configs)
+    ]
 
-  return configs
-
-
+    return configs

@@ -19,16 +19,16 @@ import numpy as np
 
 
 def erdos_graph(num_vertices, edge_prob):
-  g = graph_tool.Graph(directed=False)
-  if edge_prob == 0.0:
-    return graph_tool.Graph(directed=False)
-  _ = g.add_vertex(num_vertices)
-  for u in range(num_vertices - 1):
-    v = u + 1
-    while v < num_vertices:
-      r = random.uniform(0.0, 1.0)
-      v = v + int(math.floor(math.log(r) / math.log(1.0 - edge_prob)))
-      if v < num_vertices:
-        g.add_edge(u, v)
-        v = v + 1
-  return g
+    g = graph_tool.Graph(directed=False)
+    if edge_prob == 0.0:
+        return graph_tool.Graph(directed=False)
+    _ = g.add_vertex(num_vertices)
+    for u in range(num_vertices - 1):
+        v = u + 1
+        while v < num_vertices:
+            r = random.uniform(0.0, 1.0)
+            v = v + int(math.floor(math.log(r) / math.log(1.0 - edge_prob)))
+            if v < num_vertices:
+                g.add_edge(u, v)
+                v = v + 1
+    return g
