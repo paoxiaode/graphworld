@@ -69,7 +69,7 @@ class WriteNodeClassificationDatasetDoFn(beam.DoFn):
         batch_graph = dgl.batch(graphs)
         bg_nodes = batch_graph.num_nodes()
         bg_edges = batch_graph.num_edges()
-        max_degree = max(batch_graph.in_degrees()).item()
+        max_degree = max(batch_graph.out_degrees()).item()
 
         print("num_vertex", bg_nodes)
         print("node_feature.shape", g.ndata["feat"].shape)
