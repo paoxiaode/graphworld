@@ -97,6 +97,7 @@ class SbmGeneratorWrapper(GeneratorConfigSampler):
       
     prop_mat=MakePropMat(generator_config['num_clusters'],generator_config['p_to_q_ratio'])
     sbm_data = GenerateStochasticBlockModelWithFeatures(
+      num_graphs=4096,
       num_vertices=generator_config['nvertex'],
       num_edges=generator_config['nvertex'] * generator_config['avg_degree'],
       pi=pi,
@@ -113,16 +114,21 @@ class SbmGeneratorWrapper(GeneratorConfigSampler):
       normalize_features=self._normalize_features
     )
 
+    # return {'sample_id': sample_id,
+    #         'marginal_param': marginal_param,
+    #         'fixed_params': fixed_params,
+    #         'generator_config': generator_config,
+    #         'data': NodeClassificationDataset(
+    #             graph=sbm_data.graph,
+    #             graph_memberships=sbm_data.graph_memberships,
+    #             node_features=sbm_data.node_features,
+    #             feature_memberships=sbm_data.feature_memberships,
+    #             edge_features=sbm_data.edge_features)}
     return {'sample_id': sample_id,
             'marginal_param': marginal_param,
             'fixed_params': fixed_params,
             'generator_config': generator_config,
-            'data': NodeClassificationDataset(
-                graph=sbm_data.graph,
-                graph_memberships=sbm_data.graph_memberships,
-                node_features=sbm_data.node_features,
-                feature_memberships=sbm_data.feature_memberships,
-                edge_features=sbm_data.edge_features)}
+            'data': sbm_data}
 
 
 @gin.configurable
@@ -179,6 +185,7 @@ class CABAMGeneratorWrapper(GeneratorConfigSampler):
       pi=MakePi(generator_config['num_clusters'],generator_config['cluster_size_slope'])
 
     cabam_data = GenerateCABAMGraphWithFeatures(
+      num_graphs=4096,
       n=generator_config['nvertex'],
       min_deg=generator_config['min_deg'],
       inter_link_strength=generator_config['inter_link_strength'],
@@ -193,16 +200,22 @@ class CABAMGeneratorWrapper(GeneratorConfigSampler):
       edge_feature_dim=generator_config['edge_feature_dim'],
     )
 
+    # return {'sample_id': sample_id,
+    #         'marginal_param': marginal_param,
+    #         'fixed_params': fixed_params,
+    #         'generator_config': generator_config,
+    #         'data': NodeClassificationDataset(
+    #             graph=cabam_data.graph,
+    #             graph_memberships=cabam_data.graph_memberships,
+    #             node_features=cabam_data.node_features,
+    #             feature_memberships=cabam_data.feature_memberships,
+    #             edge_features=cabam_data.edge_features)}
     return {'sample_id': sample_id,
-            'marginal_param': marginal_param,
-            'fixed_params': fixed_params,
-            'generator_config': generator_config,
-            'data': NodeClassificationDataset(
-                graph=cabam_data.graph,
-                graph_memberships=cabam_data.graph_memberships,
-                node_features=cabam_data.node_features,
-                feature_memberships=cabam_data.feature_memberships,
-                edge_features=cabam_data.edge_features)}
+        'marginal_param': marginal_param,
+        'fixed_params': fixed_params,
+        'generator_config': generator_config,
+        'data': cabam_data}
+
 
 
 @gin.configurable

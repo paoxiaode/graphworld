@@ -7,15 +7,15 @@ fi
 
 TASK="nodeclassification"
 GENERATOR="sbm"
-
+shmoo="power_exponent"
 echo TASK $TASK
 echo GENERATOR $GENERATOR
 echo NUM_SAMPLES $NUM_SAMPLES
+echo shmoo $shmoo
 day=$(date +%m_%d)
 
-# avg_degrees=(2 4 8 16 24 32 48 64)
-# avg_degrees=(24 40 48 56)
-avg_degrees=(10)
+avg_degrees=(2 4 8 16 24 32 48 64)
+# avg_degrees=(24)
 
 
 power_exponent=9

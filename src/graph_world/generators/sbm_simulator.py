@@ -18,7 +18,7 @@ import math
 import random
 from typing import Dict, Sequence, List, Tuple
 from sklearn.preprocessing import normalize
-
+from tqdm import tqdm
 import dataclasses
 import graph_tool
 import numpy as np
@@ -247,7 +247,8 @@ def SimulateFeatures(sbm_data,
                      num_groups,
                      match_type=MatchType.RANDOM,
                      cluster_var=1.0,
-                     normalize_features=True):
+                     normalize_features=True,
+                     random_generate=False):
   """Generates node features using multivate normal mixture model.
   This function does nothing and throws a warning if
   sbm_data.graph_memberships is empty. Run SimulateSbm to fill that field.
@@ -267,29 +268,31 @@ def SimulateFeatures(sbm_data,
   if sbm_data.graph_memberships is None:
     raise RuntimeWarning("No graph_memberships found: no features generated. "
                          "Run SimulateSbm to generate graph_memberships.")
+  if random_generate:
+      features = np.random.randn(sbm_data.graph.num_vertices(),feature_dim)
+  else:
+    # Get memberships
+    sbm_data.feature_memberships = _GenerateFeatureMemberships(
+      graph_memberships=sbm_data.graph_memberships,
+      num_groups=num_groups,
+      match_type=match_type)
 
-  # Get memberships
-  sbm_data.feature_memberships = _GenerateFeatureMemberships(
-    graph_memberships=sbm_data.graph_memberships,
-    num_groups=num_groups,
-    match_type=match_type)
-
-  # Get centers
-  centers = []
-  center_cov = np.identity(feature_dim) * center_var
-  cluster_cov = np.identity(feature_dim) * cluster_var
-  for _ in range(num_groups):
-    center = np.random.multivariate_normal(
-      np.zeros(feature_dim), center_cov, 1)[0]
-    centers.append(center)
-  features = []
-  for cluster_index in sbm_data.feature_memberships:
-    feature = np.random.multivariate_normal(centers[cluster_index], cluster_cov,
-                                            1)[0]
-    features.append(feature)
-  features = np.array(features)
-  if normalize_features:
-    features = normalize(features)
+    # Get centers
+    centers = []
+    center_cov = np.identity(feature_dim) * center_var
+    cluster_cov = np.identity(feature_dim) * cluster_var
+    for _ in range(num_groups):
+      center = np.random.multivariate_normal(
+        np.zeros(feature_dim), center_cov, 1)[0]
+      centers.append(center)
+    features = []
+    for cluster_index in sbm_data.feature_memberships:
+      feature = np.random.multivariate_normal(centers[cluster_index], cluster_cov,
+                                              1)[0]
+      features.append(feature)
+    features = np.array(features)
+    if normalize_features:
+      features = normalize(features)
   sbm_data.node_features = features
 
 
@@ -340,6 +343,7 @@ def SimulateEdgeFeatures(sbm_data,
 
 
 def GenerateStochasticBlockModelWithFeatures(
+    num_graphs,
     num_vertices,
     num_edges,
     pi,
@@ -356,6 +360,7 @@ def GenerateStochasticBlockModelWithFeatures(
     normalize_features=True):
   """Generates stochastic block model (SBM) with node features.
   Args:
+    num_graphs: number of sub-graph
     num_vertices: number of nodes in the graph.
     num_edges: expected number of edges in the graph.
     pi: interable of non-zero community size proportions. Must sum to 1.0.
@@ -381,18 +386,22 @@ def GenerateStochasticBlockModelWithFeatures(
   Returns:
     result: a StochasticBlockModel data class.
   """
-  result = StochasticBlockModel()
-  SimulateSbm(result, num_vertices, num_edges, pi, prop_mat, out_degs)
-  SimulateFeatures(result, feature_center_distance,
-                   feature_dim,
-                   num_feature_groups,
-                   feature_group_match_type,
-                   feature_cluster_variance,
-                   normalize_features)
-  SimulateEdgeFeatures(result, edge_feature_dim,
-                       edge_center_distance,
-                       edge_cluster_variance)
-  return result
+  results = []
+  for i in tqdm(range(num_graphs), desc="generate subgraph by SBM simulator"):
+    result = StochasticBlockModel()
+    SimulateSbm(result, num_vertices, num_edges, pi, prop_mat, out_degs)
+    SimulateFeatures(result, feature_center_distance,
+                    feature_dim,
+                    num_feature_groups,
+                    feature_group_match_type,
+                    feature_cluster_variance,
+                    normalize_features,
+                    random_generate=True)
+    # SimulateEdgeFeatures(result, edge_feature_dim,
+    #                     edge_center_distance,
+    #                     edge_cluster_variance)
+    results.append(result)
+  return results
 
 
 # Helper function to create the "Pi" vector for the SBM model (the

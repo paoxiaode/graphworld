@@ -28,8 +28,8 @@ SBMSamplerSpec = [
 ]
 
 nvertex/ParamSamplerSpec.name = "nvertex"
-nvertex/ParamSamplerSpec.min_val = 16384
-nvertex/ParamSamplerSpec.max_val = 16384
+nvertex/ParamSamplerSpec.min_val = 128
+nvertex/ParamSamplerSpec.max_val = 128
 
 p_to_q_ratio/ParamSamplerSpec.name = "p_to_q_ratio"
 p_to_q_ratio/ParamSamplerSpec.min_val = 1.0
